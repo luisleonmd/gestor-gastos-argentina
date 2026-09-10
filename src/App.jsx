@@ -77,115 +77,226 @@ const PARTICIPANTS = [
 
 const INITIAL_EXPENSES = [
   {
-    id: 'exp-1',
-    title: 'Boletos de Avión San José - Mendoza - San José',
-    amount: 7419.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie'],
-    expenseType: 'paid',
-    paymentMethod: 'credit_card',
-    paidStatus: {
-      joseluis: true,
-      david: false,
-      carl: false,
-      anjuri: false,
-      marie: false
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "date": "2026-09-10",
+    "id": "exp-1789071151263",
+    "paidStatus": {},
+    "paymentMethod": "credit_card",
+    "amount": 2700,
+    "expenseType": "pending",
+    "title": "Hospedaje Buenos Aires",
+    "paidBy": "joseluis"
+  },
+  {
+    "title": "Buque a Colonia",
+    "date": "2026-09-10",
+    "expenseType": "pending",
+    "paymentMethod": "credit_card",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "paidBy": "joseluis",
+    "paidStatus": {},
+    "id": "exp-1789008286910",
+    "amount": 720
+  },
+  {
+    "paidBy": "joseluis",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "title": "Vuelos Mendoza EZE",
+    "amount": 2100,
+    "expenseType": "pending",
+    "paidStatus": {},
+    "id": "exp-1789008270211",
+    "date": "2026-09-10",
+    "paymentMethod": "credit_card"
+  },
+  {
+    "title": "Transporte Viñedos",
+    "date": "2026-09-10",
+    "paymentMethod": "cash_usd",
+    "id": "exp-1789008230976",
+    "paidStatus": {},
+    "paidBy": "joseluis",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "expenseType": "cash",
+    "amount": 300
+  },
+  {
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "title": "Excursión Alta Montaña Mendoza",
+    "paidStatus": {},
+    "id": "exp-1789008199911",
+    "date": "2026-09-10",
+    "paymentMethod": "credit_card",
+    "paidBy": "joseluis",
+    "expenseType": "paid",
+    "amount": 469
+  },
+  {
+    "paidStatus": {},
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "title": "Hotel Huentala Mendoza",
+    "id": "exp-1789008145898",
+    "date": "2026-09-10",
+    "paidBy": "carl",
+    "paymentMethod": "credit_card",
+    "expenseType": "paid",
+    "amount": 2419.5
+  },
+  {
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie"
+    ],
+    "paidStatus": {
+      "david": false,
+      "joseluis": true,
+      "anjuri": false,
+      "carl": false,
+      "marie": false
     },
-    date: '2026-09-01'
+    "date": "2026-09-01",
+    "id": "exp-1",
+    "expenseType": "paid",
+    "amount": 7419,
+    "paymentMethod": "credit_card",
+    "title": "Boletos de Avión San José - Mendoza - San José",
+    "paidBy": "joseluis"
   },
   {
-    id: 'exp-2',
-    title: 'Almuerzo Bodega Zuccardi',
-    amount: 980.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie', 'katerin', 'joan'],
-    expenseType: 'paid',
-    paymentMethod: 'credit_card',
-    paidStatus: {
-      joseluis: true,
-      david: false,
-      carl: false,
-      anjuri: false,
-      marie: false,
-      katerin: false,
-      joan: false
+    "id": "exp-2",
+    "date": "2026-09-02",
+    "expenseType": "paid",
+    "paidStatus": {
+      "joan": false,
+      "katerin": false,
+      "david": false,
+      "joseluis": true,
+      "anjuri": false,
+      "carl": false,
+      "marie": false
     },
-    date: '2026-09-02'
+    "paymentMethod": "credit_card",
+    "amount": 980,
+    "title": "Almuerzo Bodega Zuccardi",
+    "paidBy": "joseluis",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ]
   },
   {
-    id: 'exp-3',
-    title: 'Visita Bodega Salentein',
-    amount: 700.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie', 'katerin', 'joan'],
-    expenseType: 'paid',
-    paymentMethod: 'credit_card',
-    paidStatus: {
-      joseluis: true,
-      david: false,
-      carl: false,
-      anjuri: false,
-      marie: false,
-      katerin: false,
-      joan: false
+    "paidStatus": {
+      "katerin": false,
+      "joan": false,
+      "anjuri": false,
+      "marie": false,
+      "carl": false,
+      "david": false,
+      "joseluis": true
     },
-    date: '2026-09-03'
+    "paymentMethod": "credit_card",
+    "id": "exp-3",
+    "date": "2026-09-03",
+    "expenseType": "paid",
+    "amount": 700,
+    "title": "Visita Bodega Salentein",
+    "paidBy": "joseluis",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ]
   },
   {
-    id: 'exp-4',
-    title: 'Almuerzo El Enemigo (Casa Vigil)',
-    amount: 224.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie', 'katerin', 'joan'],
-    expenseType: 'paid',
-    paymentMethod: 'credit_card',
-    paidStatus: {
-      joseluis: true,
-      david: false,
-      carl: false,
-      anjuri: false,
-      marie: false,
-      katerin: false,
-      joan: false
+    "date": "2026-09-04",
+    "paidStatus": {
+      "anjuri": false,
+      "david": false,
+      "joan": false,
+      "joseluis": true,
+      "katerin": false,
+      "carl": false,
+      "marie": false
     },
-    date: '2026-09-04'
-  },
-  {
-    id: 'exp-8',
-    title: 'Gasto Pendiente 1',
-    amount: 1400.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie', 'katerin', 'joan'],
-    expenseType: 'pending',
-    paymentMethod: 'credit_card',
-    paidStatus: {},
-    date: '2026-09-08'
-  },
-  {
-    id: 'exp-9',
-    title: 'Gasto Pendiente 2',
-    amount: 1400.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie', 'katerin', 'joan'],
-    expenseType: 'pending',
-    paymentMethod: 'credit_card',
-    paidStatus: {},
-    date: '2026-09-09'
-  },
-  {
-    id: 'exp-10',
-    title: 'Transporte / Efectivo Destino',
-    amount: 419.00,
-    paidBy: 'joseluis',
-    participants: ['joseluis', 'david', 'carl', 'anjuri', 'marie', 'katerin', 'joan'],
-    expenseType: 'cash',
-    paymentMethod: 'cash_usd',
-    paidStatus: {},
-    date: '2026-09-10'
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "amount": 224,
+    "title": "Almuerzo El Enemigo (Casa Vigil)",
+    "paymentMethod": "credit_card",
+    "id": "exp-4",
+    "paidBy": "joseluis",
+    "expenseType": "paid"
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v3';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v4';
 
 const loadLatestStoredExpenses = () => {
   try {
