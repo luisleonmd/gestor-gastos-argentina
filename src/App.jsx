@@ -297,6 +297,7 @@ const INITIAL_EXPENSES = [
 ];
 
 const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v4';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v1';
 
 const loadLatestStoredExpenses = () => {
   try {
@@ -308,6 +309,17 @@ const loadLatestStoredExpenses = () => {
     }
   } catch (e) {}
   return INITIAL_EXPENSES;
+};
+
+const loadLatestStoredPayments = () => {
+  try {
+    const raw = localStorage.getItem(PRIMARY_PAYMENTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
 };
 
 const scanAllAvailableStorage = () => {
@@ -421,6 +433,88 @@ export default function App() {
   const [showQuickBackupModal, setShowQuickBackupModal] = useState(false);
   const [rawBackupText, setRawBackupText] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+
+  const [payments, setPayments] = useState(() => loadLatestStoredPayments());
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentFrom, setPaymentFrom] = useState('mary');
+  const [paymentTo, setPaymentTo] = useState('joseluis');
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('cash_usd');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [paymentExpenseId, setPaymentExpenseId] = useState('');
+
+  const persistPayments = (listToSave) => {
+    const list = listToSave || payments;
+    try {
+      localStorage.setItem(PRIMARY_PAYMENTS_KEY, JSON.stringify(list));
+    } catch (e) {}
+    if (db && user) {
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'argentina_expenses', 'active_payments');
+        setDoc(docRef, {
+          payments: list,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (err) {}
+    }
+  };
+
+  const handleAddPayment = (e) => {
+    e.preventDefault();
+    const amt = parseFloat(paymentAmount);
+    if (!amt || amt <= 0) {
+      alert('Por favor ingresa un monto válido para el abono.');
+      return;
+    }
+    if (paymentFrom === paymentTo) {
+      alert('El deudor y el acreedor no pueden ser la misma persona.');
+      return;
+    }
+
+    const payerObj = PARTICIPANTS.find(p => p.id === paymentFrom);
+    const receiverObj = PARTICIPANTS.find(p => p.id === paymentTo);
+
+    const newPayment = {
+      id: 'pay-' + Date.now(),
+      from: paymentFrom,
+      to: paymentTo,
+      amount: amt,
+      method: paymentMethod,
+      note: paymentNote.trim() || 'Abono directo entre participantes',
+      date: paymentDate || new Date().toISOString().split('T')[0],
+      expenseId: paymentExpenseId || null
+    };
+
+    const updated = [newPayment, ...payments];
+    setPayments(updated);
+    persistPayments(updated);
+
+    setShowPaymentModal(false);
+    setPaymentAmount('');
+    setPaymentNote('');
+    setCopySuccessNotice(`✅ Abono registrado: $${amt.toFixed(2)} USD de ${payerObj?.shortName || paymentFrom} a ${receiverObj?.shortName || paymentTo}`);
+    setTimeout(() => setCopySuccessNotice(''), 4500);
+  };
+
+  const handleDeletePayment = (paymentId) => {
+    if (window.confirm('¿Deseas eliminar este registro de abono?')) {
+      const updated = payments.filter(p => p.id !== paymentId);
+      setPayments(updated);
+      persistPayments(updated);
+      setCopySuccessNotice('Abono eliminado con éxito.');
+      setTimeout(() => setCopySuccessNotice(''), 3000);
+    }
+  };
+
+  const openPaymentForPerson = (fromId, toId = 'joseluis') => {
+    setPaymentFrom(fromId);
+    setPaymentTo(toId);
+    setPaymentAmount('');
+    setPaymentNote('');
+    setPaymentDate(new Date().toISOString().split('T')[0]);
+    setShowPaymentModal(true);
+  };
 
   useEffect(() => {
     if (!auth) return;
@@ -565,6 +659,9 @@ export default function App() {
         totalCostAllActivities: 0,
         totalAlreadySettledToOrganizer: 0,
         debtToOrganizerRemaining: 0,
+        grossDebtToOrganizer: 0,
+        totalPaymentsMade: 0,
+        totalPaymentsReceived: 0,
         pendingProjectedShare: 0,
         cashRequiredForTrip: 0,
         totalOutOfPocketRequired: 0
@@ -639,7 +736,7 @@ export default function App() {
             if (hasSettled) {
               userBreakdowns[userId].totalAlreadySettledToOrganizer += share;
             } else {
-              userBreakdowns[userId].debtToOrganizerRemaining += share;
+              userBreakdowns[userId].grossDebtToOrganizer += share;
             }
           }
         } else if (exp.expenseType === 'pending') {
@@ -670,8 +767,22 @@ export default function App() {
       });
     });
 
+    let totalAbonosTrip = 0;
+    payments.forEach(pay => {
+      const amt = Number(pay.amount) || 0;
+      totalAbonosTrip += amt;
+      if (userBreakdowns[pay.from]) {
+        userBreakdowns[pay.from].totalPaymentsMade += amt;
+      }
+      if (userBreakdowns[pay.to]) {
+        userBreakdowns[pay.to].totalPaymentsReceived += amt;
+      }
+    });
+
     PARTICIPANTS.forEach(p => {
       const b = userBreakdowns[p.id];
+      b.debtToOrganizerRemaining = Math.max(0, b.grossDebtToOrganizer - b.totalPaymentsMade);
+      b.totalAlreadySettledToOrganizer += b.totalPaymentsMade;
       b.totalOutOfPocketRequired = b.debtToOrganizerRemaining + b.pendingProjectedShare + b.cashRequiredForTrip;
     });
 
@@ -686,9 +797,10 @@ export default function App() {
       totalPaidCategory,
       totalPendingCategory,
       totalCashCategory,
+      totalAbonosTrip,
       organizerTotalOwedByOthers
     };
-  }, [expenses]);
+  }, [expenses, payments]);
 
   const handleTogglePaymentStatus = (expenseId, userId) => {
     const updated = expenses.map(exp => {
@@ -1011,6 +1123,14 @@ export default function App() {
             >
               <IconSave />
               <span>{saveStatus === 'saved' ? '¡Guardado!' : 'Guardar Info'}</span>
+            </button>
+
+            <button
+              onClick={() => openPaymentForPerson('mary', 'joseluis')}
+              className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-extrabold px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-md transition"
+              title="Registrar un abono o pago parcial entre participantes"
+            >
+              <span>💸 + Registrar Abono</span>
             </button>
 
             <button
@@ -1361,15 +1481,24 @@ export default function App() {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => {
-                            setSelectedUserForMessage(passenger.id);
-                            setShowTableModal(true);
-                          }}
-                          className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg transition"
-                        >
-                          Copiar WhatsApp
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => openPaymentForPerson(passenger.id, 'joseluis')}
+                            className="text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-2.5 py-1.5 rounded-lg transition shadow-xs flex items-center gap-1"
+                            title="Registrar un abono realizado por esta persona"
+                          >
+                            <span>💸 + Abonar</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedUserForMessage(passenger.id);
+                              setShowTableModal(true);
+                            }}
+                            className="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-2.5 py-1.5 rounded-lg transition"
+                          >
+                            Copiar WhatsApp
+                          </button>
+                        </div>
                       </div>
 
                       {/* Section 1: Paid rubros */}
@@ -1480,18 +1609,29 @@ export default function App() {
 
                     {/* Final Passenger Settlement Box */}
                     <div className="bg-slate-50 border-t border-slate-200 p-4 space-y-3">
-                      <div className="text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                        Liquidación y Totales a Pagar:
+                      <div className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                        <span>Liquidación y Totales a Pagar:</span>
+                        {b.totalPaymentsMade > 0 && (
+                          <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-0.5 rounded-md">
+                            Abonó: ${b.totalPaymentsMade.toFixed(2)} USD
+                          </span>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         {!passenger.isOrganizer ? (
-                          <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                          <div className="bg-white p-2.5 rounded-xl border border-slate-200 space-y-1">
                             <div className="text-slate-500 text-[10px] font-bold">Total a pagarle a José Luis:</div>
-                            <div className={`text-sm font-black mt-0.5 ${b.debtToOrganizerRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            <div className={`text-sm font-black ${b.debtToOrganizerRemaining > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                               ${b.debtToOrganizerRemaining.toFixed(2)} USD
                               {b.debtToOrganizerRemaining === 0 && <span className="text-[10px] ml-1 font-bold">✓ Al día</span>}
                             </div>
+                            {b.totalPaymentsMade > 0 && (
+                              <div className="text-[10px] text-slate-500 pt-0.5 border-t border-slate-100 flex justify-between">
+                                <span>Deuda inicial: ${b.grossDebtToOrganizer.toFixed(2)}</span>
+                                <span className="text-emerald-700 font-bold">Abonó: -${b.totalPaymentsMade.toFixed(2)}</span>
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="bg-white p-2.5 rounded-xl border border-slate-200">
@@ -1499,6 +1639,11 @@ export default function App() {
                             <div className="text-sm font-black text-teal-600 mt-0.5">
                               ${calculations.organizerTotalOwedByOthers.toFixed(2)} USD
                             </div>
+                            {b.totalPaymentsReceived > 0 && (
+                              <div className="text-[10px] text-emerald-700 font-bold mt-1">
+                                Ya cobró en abonos: ${b.totalPaymentsReceived.toFixed(2)} USD
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -1530,11 +1675,209 @@ export default function App() {
                 );
               })}
             </div>
+
+            {/* Historial de Abonos y Pagos Registrados */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                    <span>📜 Historial de Abonos y Pagos Registrados</span>
+                    <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full">
+                      {payments.length} registro(s)
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Registro de abonos parciales o totales realizados en efectivo, transferencia o tarjeta entre personas.
+                  </p>
+                </div>
+                <button
+                  onClick={() => openPaymentForPerson('mary', 'joseluis')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-3.5 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5"
+                >
+                  <span>💸 + Registrar Nuevo Abono</span>
+                </button>
+              </div>
+
+              {payments.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs font-semibold bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                  Aún no hay abonos o pagos registrados. Haz clic en <strong>"+ Registrar Nuevo Abono"</strong> para agregar el primero.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {payments.map(pay => {
+                    const payerObj = PARTICIPANTS.find(p => p.id === pay.from);
+                    const receiverObj = PARTICIPANTS.find(p => p.id === pay.to);
+
+                    return (
+                      <div key={pay.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center">
+                            💸
+                          </div>
+                          <div>
+                            <div className="font-extrabold text-slate-900 text-sm">
+                              <span>{payerObj?.name || pay.from}</span>
+                              <span className="text-slate-400 mx-1.5">➔</span>
+                              <span className="text-teal-700 font-black">{receiverObj?.name || pay.to}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-2 mt-0.5">
+                              <span>Fecha: <strong>{pay.date}</strong></span>
+                              <span>•</span>
+                              <span>Método: <strong className="text-slate-700">{pay.method === 'cash_usd' ? 'Efectivo USD' : pay.method === 'transfer' ? 'Transferencia' : 'Tarjeta'}</strong></span>
+                              <span>•</span>
+                              <span>Nota: <em className="text-slate-700 font-semibold">{pay.note}</em></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="font-black text-base text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
+                            +${Number(pay.amount).toFixed(2)} USD
+                          </span>
+                          <button
+                            onClick={() => handleDeletePayment(pay.id)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
+                            title="Eliminar abono"
+                          >
+                            <IconTrash />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </main>
 
       {}
+      {/* Modal para Registrar Abono entre Personas */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden flex flex-col">
+            <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
+              <h3 className="font-extrabold text-sm flex items-center gap-2">
+                <span>💸 Registrar Abono / Pago entre Personas</span>
+              </h3>
+              <button
+                onClick={() => setShowPaymentModal(false)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <IconX />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddPayment} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  ¿Quién realiza el abono? (Deudor):
+                </label>
+                <select
+                  value={paymentFrom}
+                  onChange={(e) => setPaymentFrom(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  {PARTICIPANTS.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.shortName})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  ¿Quién recibe el dinero? (Acreedor):
+                </label>
+                <select
+                  value={paymentTo}
+                  onChange={(e) => setPaymentTo(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  {PARTICIPANTS.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.shortName})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Monto ($ USD):
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    placeholder="Ej: 1000.00"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-extrabold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Fecha:
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Método de Pago:
+                </label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="cash_usd">💵 Efectivo USD</option>
+                  <option value="transfer">🏦 Transferencia / Sinpe / Depósito</option>
+                  <option value="credit_card">💳 Tarjeta de Crédito</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nota / Gasto Asociado (Opcional):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Abono Hospedaje Buenos Aires / Viaje Mendoza"
+                  value={paymentNote}
+                  onChange={(e) => setPaymentNote(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md transition"
+                >
+                  Guardar Abono
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
