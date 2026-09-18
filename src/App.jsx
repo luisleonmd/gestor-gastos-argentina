@@ -443,6 +443,7 @@ export default function App() {
   const [paymentNote, setPaymentNote] = useState('');
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [paymentExpenseId, setPaymentExpenseId] = useState('');
+  const [editingPaymentId, setEditingPaymentId] = useState(null);
 
   const persistPayments = (listToSave) => {
     const list = listToSave || payments;
@@ -475,26 +476,47 @@ export default function App() {
     const payerObj = PARTICIPANTS.find(p => p.id === paymentFrom);
     const receiverObj = PARTICIPANTS.find(p => p.id === paymentTo);
 
-    const newPayment = {
-      id: 'pay-' + Date.now(),
-      from: paymentFrom,
-      to: paymentTo,
-      amount: amt,
-      method: paymentMethod,
-      note: paymentNote.trim() || 'Abono directo entre participantes',
-      date: paymentDate || new Date().toISOString().split('T')[0],
-      expenseId: paymentExpenseId || null
-    };
+    let updated;
+    if (editingPaymentId) {
+      updated = payments.map(p => {
+        if (p.id === editingPaymentId) {
+          return {
+            ...p,
+            from: paymentFrom,
+            to: paymentTo,
+            amount: amt,
+            method: paymentMethod,
+            note: paymentNote.trim() || 'Abono directo entre participantes',
+            date: paymentDate || new Date().toISOString().split('T')[0],
+            expenseId: paymentExpenseId || null
+          };
+        }
+        return p;
+      });
+      setCopySuccessNotice(`✅ Abono actualizado: $${amt.toFixed(2)} USD de ${payerObj?.shortName || paymentFrom} a ${receiverObj?.shortName || paymentTo}`);
+    } else {
+      const newPayment = {
+        id: 'pay-' + Date.now(),
+        from: paymentFrom,
+        to: paymentTo,
+        amount: amt,
+        method: paymentMethod,
+        note: paymentNote.trim() || 'Abono directo entre participantes',
+        date: paymentDate || new Date().toISOString().split('T')[0],
+        expenseId: paymentExpenseId || null
+      };
+      updated = [newPayment, ...payments];
+      setCopySuccessNotice(`✅ Abono registrado: $${amt.toFixed(2)} USD de ${payerObj?.shortName || paymentFrom} a ${receiverObj?.shortName || paymentTo}`);
+    }
 
-    const updated = [newPayment, ...payments];
     setPayments(updated);
     persistPayments(updated);
 
     setShowPaymentModal(false);
+    setEditingPaymentId(null);
     setPaymentAmount('');
     setPaymentNote('');
     setPaymentExpenseId('');
-    setCopySuccessNotice(`✅ Abono registrado: $${amt.toFixed(2)} USD de ${payerObj?.shortName || paymentFrom} a ${receiverObj?.shortName || paymentTo}`);
     setTimeout(() => setCopySuccessNotice(''), 4500);
   };
 
@@ -508,7 +530,20 @@ export default function App() {
     }
   };
 
+  const openEditPaymentModal = (pay) => {
+    setEditingPaymentId(pay.id);
+    setPaymentFrom(pay.from);
+    setPaymentTo(pay.to);
+    setPaymentAmount(pay.amount ? pay.amount.toString() : '');
+    setPaymentMethod(pay.method || 'cash_usd');
+    setPaymentNote(pay.note || '');
+    setPaymentDate(pay.date || new Date().toISOString().split('T')[0]);
+    setPaymentExpenseId(pay.expenseId || '');
+    setShowPaymentModal(true);
+  };
+
   const openPaymentForPerson = (fromId, toId = 'joseluis', expenseId = '') => {
+    setEditingPaymentId(null);
     setPaymentFrom(fromId);
     setPaymentTo(toId);
     setPaymentExpenseId(expenseId || '');
@@ -1781,16 +1816,25 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-wrap justify-end">
                           <span className="font-black text-base text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
                             +${Number(pay.amount).toFixed(2)} USD
                           </span>
                           <button
+                            onClick={() => openEditPaymentModal(pay)}
+                            className="px-2.5 py-1.5 text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition flex items-center gap-1 font-bold text-xs"
+                            title="Editar este abono (monto, fecha, deudor, etc.)"
+                          >
+                            <IconEdit />
+                            <span>Editar</span>
+                          </button>
+                          <button
                             onClick={() => handleDeletePayment(pay.id)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg transition"
-                            title="Eliminar abono"
+                            className="px-2.5 py-1.5 text-rose-700 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition flex items-center gap-1 font-bold text-xs"
+                            title="Eliminar este abono"
                           >
                             <IconTrash />
+                            <span>Eliminar</span>
                           </button>
                         </div>
                       </div>
@@ -1803,16 +1847,19 @@ export default function App() {
         )}
       </main>
 
-      {/* Modal para Registrar Abono entre Personas */}
+      {/* Modal para Registrar o Editar Abono entre Personas */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden flex flex-col">
             <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
               <h3 className="font-extrabold text-sm flex items-center gap-2">
-                <span>💸 Registrar Abono / Pago entre Personas</span>
+                <span>{editingPaymentId ? '✏️ Editar Registro de Abono' : '💸 Registrar Abono / Pago entre Personas'}</span>
               </h3>
               <button
-                onClick={() => setShowPaymentModal(false)}
+                onClick={() => {
+                  setShowPaymentModal(false);
+                  setEditingPaymentId(null);
+                }}
                 className="text-slate-400 hover:text-white transition"
               >
                 <IconX />
@@ -1941,16 +1988,19 @@ export default function App() {
               <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowPaymentModal(false)}
+                  onClick={() => {
+                    setShowPaymentModal(false);
+                    setEditingPaymentId(null);
+                  }}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md transition"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md transition flex items-center gap-1.5"
                 >
-                  Guardar Abono
+                  <span>{editingPaymentId ? '💾 Actualizar Abono' : 'Guardar Abono'}</span>
                 </button>
               </div>
             </form>
