@@ -493,6 +493,7 @@ export default function App() {
     setShowPaymentModal(false);
     setPaymentAmount('');
     setPaymentNote('');
+    setPaymentExpenseId('');
     setCopySuccessNotice(`✅ Abono registrado: $${amt.toFixed(2)} USD de ${payerObj?.shortName || paymentFrom} a ${receiverObj?.shortName || paymentTo}`);
     setTimeout(() => setCopySuccessNotice(''), 4500);
   };
@@ -507,9 +508,10 @@ export default function App() {
     }
   };
 
-  const openPaymentForPerson = (fromId, toId = 'joseluis') => {
+  const openPaymentForPerson = (fromId, toId = 'joseluis', expenseId = '') => {
     setPaymentFrom(fromId);
     setPaymentTo(toId);
+    setPaymentExpenseId(expenseId || '');
     setPaymentAmount('');
     setPaymentNote('');
     setPaymentDate(new Date().toISOString().split('T')[0]);
@@ -673,6 +675,15 @@ export default function App() {
     let totalPendingCategory = 0;
     let totalCashCategory = 0;
 
+    // Rastrear abonos registrados específicos por gasto y participante
+    const abonosByExpenseAndUser = {};
+    payments.forEach(pay => {
+      if (pay.expenseId && pay.from) {
+        const key = `${pay.expenseId}_${pay.from}`;
+        abonosByExpenseAndUser[key] = (abonosByExpenseAndUser[key] || 0) + (Number(pay.amount) || 0);
+      }
+    });
+
     expenses.forEach(exp => {
       const amt = Number(exp.amount) || 0;
       const participantsCount = (exp.participants && exp.participants.length > 0) ? exp.participants.length : 1;
@@ -693,7 +704,8 @@ export default function App() {
 
         if (exp.expenseType === 'paid') {
           const isPayer = (exp.paidBy === userId);
-          const hasSettled = isPayer || Boolean(exp.paidStatus && exp.paidStatus[userId]);
+          const abonoSpecificAmt = abonosByExpenseAndUser[`${exp.id}_${userId}`] || 0;
+          const hasSettled = isPayer || Boolean(exp.paidStatus && exp.paidStatus[userId]) || (abonoSpecificAmt >= share && share > 0);
 
           // Calcular cuánto le deben los demás a quien pagó este rubro específico
           let remainingOwedOnItem = 0;
@@ -706,10 +718,11 @@ export default function App() {
               totalOthersShare += share;
               const otherPass = PARTICIPANTS.find(p => p.id === otherId);
               const otherName = otherPass ? otherPass.shortName : otherId;
-              if (exp.paidStatus && exp.paidStatus[otherId]) {
+              const otherAbono = abonosByExpenseAndUser[`${exp.id}_${otherId}`] || 0;
+              if ((exp.paidStatus && exp.paidStatus[otherId]) || otherAbono >= share) {
                 settledParticipants.push(otherName);
               } else {
-                remainingOwedOnItem += share;
+                remainingOwedOnItem += Math.max(0, share - otherAbono);
                 unsettledParticipants.push(otherName);
               }
             }
@@ -726,6 +739,8 @@ export default function App() {
             payerFull,
             isPayer,
             hasSettled,
+            abonoSpecificAmt,
+            remainingShareAfterAbono: Math.max(0, share - abonoSpecificAmt),
             remainingOwedOnItem,
             totalOthersShare,
             unsettledParticipants,
@@ -1362,36 +1377,46 @@ export default function App() {
                             const hasSettled = isPayer || Boolean(exp.paidStatus && exp.paidStatus[uid]);
 
                             return (
-                              <button
-                                key={uid}
-                                onClick={() => {
-                                  if (!isPayer) handleTogglePaymentStatus(exp.id, uid);
-                                }}
-                                disabled={isPayer}
-                                className={`text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition ${
-                                  isPayer 
-                                    ? 'bg-slate-100 text-slate-700 border border-slate-300 cursor-default'
-                                    : hasSettled 
-                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'
-                                    : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300'
-                                }`}
-                                title={isPayer ? 'Adelantó el pago completo de este rubro' : hasSettled ? 'Ya le pagó su cuota. Haz clic para cambiar a pendiente.' : 'Aún le debe su cuota. Haz clic para marcar como saldado.'}
-                              >
-                                <span>{passenger?.shortName}:</span>
-                                {isPayer ? (
-                                  <span className="text-[11px] text-slate-700 font-extrabold">
-                                    Adelantó total (${amt.toFixed(2)})
-                                  </span>
-                                ) : hasSettled ? (
-                                  <span className="text-emerald-700 flex items-center gap-1 font-bold">
-                                    <IconCheck /> Pagó ${perPerson.toFixed(2)} a {payerObj?.shortName}
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] text-rose-700 font-black">
-                                    Debe ${perPerson.toFixed(2)} a {payerObj?.shortName}
-                                  </span>
+                              <div key={uid} className="flex items-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    if (!isPayer) handleTogglePaymentStatus(exp.id, uid);
+                                  }}
+                                  disabled={isPayer}
+                                  className={`text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition ${
+                                    isPayer 
+                                      ? 'bg-slate-100 text-slate-700 border border-slate-300 cursor-default'
+                                      : hasSettled 
+                                      ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'
+                                      : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300'
+                                  }`}
+                                  title={isPayer ? 'Adelantó el pago completo de este rubro' : hasSettled ? 'Ya le pagó su cuota. Haz clic para cambiar a pendiente.' : 'Aún le debe su cuota. Haz clic para marcar como saldado.'}
+                                >
+                                  <span>{passenger?.shortName}:</span>
+                                  {isPayer ? (
+                                    <span className="text-[11px] text-slate-700 font-extrabold">
+                                      Adelantó total (${amt.toFixed(2)})
+                                    </span>
+                                  ) : hasSettled ? (
+                                    <span className="text-emerald-700 flex items-center gap-1 font-bold">
+                                      <IconCheck /> Pagó ${perPerson.toFixed(2)} a {payerObj?.shortName}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] text-rose-700 font-black">
+                                      Debe ${perPerson.toFixed(2)} a {payerObj?.shortName}
+                                    </span>
+                                  )}
+                                </button>
+                                {!isPayer && !hasSettled && (
+                                  <button
+                                    onClick={() => openPaymentForPerson(uid, exp.paidBy || 'joseluis', exp.id)}
+                                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-2 py-1.5 rounded-xl transition shadow-xs flex items-center gap-1"
+                                    title={`Registrar un abono para ${passenger?.shortName} en este gasto`}
+                                  >
+                                    <span>💸 Abonar</span>
+                                  </button>
                                 )}
-                              </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -1545,18 +1570,34 @@ export default function App() {
                                     </div>
                                   </div>
                                 ) : (
-                                  <button
-                                    onClick={() => handleTogglePaymentStatus(item.expenseId, passenger.id)}
-                                    className={`text-[11px] font-bold px-3 py-1 rounded-lg transition border ${
-                                      item.hasSettled
-                                        ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300'
-                                        : 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-300'
-                                    }`}
-                                  >
-                                    {item.hasSettled 
-                                      ? `✓ Saldó a ${item.payerShort} ($${item.share.toFixed(2)})` 
-                                      : `⚠️ Debe $${item.share.toFixed(2)} a ${item.payerShort}`}
-                                  </button>
+                                  <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                    {item.abonoSpecificAmt > 0 && !item.hasSettled && (
+                                      <span className="text-[10px] bg-amber-50 text-amber-900 border border-amber-200 px-2 py-1 rounded-lg font-bold">
+                                        Abonado: ${item.abonoSpecificAmt.toFixed(2)} USD (Resta: ${item.remainingShareAfterAbono.toFixed(2)})
+                                      </span>
+                                    )}
+                                    <button
+                                      onClick={() => handleTogglePaymentStatus(item.expenseId, passenger.id)}
+                                      className={`text-[11px] font-bold px-3 py-1 rounded-lg transition border ${
+                                        item.hasSettled
+                                          ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border-emerald-300'
+                                          : 'bg-rose-100 hover:bg-rose-200 text-rose-900 border-rose-300'
+                                      }`}
+                                    >
+                                      {item.hasSettled 
+                                        ? `✓ Saldó a ${item.payerShort} ($${item.share.toFixed(2)})` 
+                                        : `⚠️ Debe $${item.share.toFixed(2)} a ${item.payerShort}`}
+                                    </button>
+                                    {!item.hasSettled && (
+                                      <button
+                                        onClick={() => openPaymentForPerson(passenger.id, item.paidBy, item.expenseId)}
+                                        className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-2.5 py-1 rounded-lg transition"
+                                        title="Registrar abono para este gasto"
+                                      >
+                                        💸 + Abonar
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1707,6 +1748,7 @@ export default function App() {
                   {payments.map(pay => {
                     const payerObj = PARTICIPANTS.find(p => p.id === pay.from);
                     const receiverObj = PARTICIPANTS.find(p => p.id === pay.to);
+                    const linkedExp = pay.expenseId ? expenses.find(e => e.id === pay.expenseId) : null;
 
                     return (
                       <div key={pay.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -1715,10 +1757,19 @@ export default function App() {
                             💸
                           </div>
                           <div>
-                            <div className="font-extrabold text-slate-900 text-sm">
+                            <div className="font-extrabold text-slate-900 text-sm flex items-center gap-2 flex-wrap">
                               <span>{payerObj?.name || pay.from}</span>
-                              <span className="text-slate-400 mx-1.5">➔</span>
+                              <span className="text-slate-400">➔</span>
                               <span className="text-teal-700 font-black">{receiverObj?.name || pay.to}</span>
+                              {linkedExp ? (
+                                <span className="bg-blue-100 text-blue-900 border border-blue-200 px-2 py-0.5 rounded-md font-extrabold text-[10px] flex items-center gap-1">
+                                  📌 Gasto: {linkedExp.title}
+                                </span>
+                              ) : (
+                                <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold text-[10px]">
+                                  🌐 Abono General
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-2 mt-0.5">
                               <span>Fecha: <strong>{pay.date}</strong></span>
@@ -1752,7 +1803,6 @@ export default function App() {
         )}
       </main>
 
-      {}
       {/* Modal para Registrar Abono entre Personas */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1770,6 +1820,36 @@ export default function App() {
             </div>
 
             <form onSubmit={handleAddPayment} className="p-5 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  📌 Movimiento / Gasto al que aplica el Abono:
+                </label>
+                <select
+                  value={paymentExpenseId}
+                  onChange={(e) => {
+                    const selectedExpId = e.target.value;
+                    setPaymentExpenseId(selectedExpId);
+                    if (selectedExpId) {
+                      const found = expenses.find(exp => exp.id === selectedExpId);
+                      if (found && found.paidBy) {
+                        setPaymentTo(found.paidBy);
+                      }
+                      if (!paymentNote || paymentNote === 'Abono directo entre participantes') {
+                        setPaymentNote(found ? `Abono a: ${found.title}` : '');
+                      }
+                    }
+                  }}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="">-- Abono General (Sin movimiento específico) --</option>
+                  {expenses.map(exp => (
+                    <option key={exp.id} value={exp.id}>
+                      [{exp.expenseType === 'paid' ? '💳 Pagado' : exp.expenseType === 'pending' ? '⏳ Pendiente' : '💵 Efectivo'}] {exp.title} - ${Number(exp.amount).toFixed(2)} USD
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   ¿Quién realiza el abono? (Deudor):
@@ -1847,11 +1927,11 @@ export default function App() {
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Nota / Gasto Asociado (Opcional):
+                  Nota o Detalle del Pago:
                 </label>
                 <input
                   type="text"
-                  placeholder="Ej: Abono Hospedaje Buenos Aires / Viaje Mendoza"
+                  placeholder="Ej: Comprobante o detalle adicional"
                   value={paymentNote}
                   onChange={(e) => setPaymentNote(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500"
