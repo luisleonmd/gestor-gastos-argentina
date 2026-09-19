@@ -296,6 +296,69 @@ const INITIAL_EXPENSES = [
   }
 ];
 
+const INITIAL_PAYMENTS = [
+  {
+    id: "pay-1789071151264-1",
+    from: "marie",
+    to: "joseluis",
+    amount: 28.29,
+    method: "transfer",
+    note: "Abono directo entre participantes",
+    date: "2026-09-18",
+    expenseId: ""
+  },
+  {
+    id: "pay-1789071151264-2",
+    from: "anjuri",
+    to: "joseluis",
+    amount: 28.29,
+    method: "transfer",
+    note: "Abono directo entre participantes",
+    date: "2026-09-18",
+    expenseId: ""
+  },
+  {
+    id: "pay-1789071151264-3",
+    from: "carl",
+    to: "joseluis",
+    amount: 28.29,
+    method: "transfer",
+    note: "Abono directo entre participantes",
+    date: "2026-09-18",
+    expenseId: ""
+  },
+  {
+    id: "pay-1789071151265-1",
+    from: "marie",
+    to: "joseluis",
+    amount: 1483.80,
+    method: "transfer",
+    note: "Abono directo entre participantes",
+    date: "2026-09-18",
+    expenseId: "exp-1"
+  },
+  {
+    id: "pay-1789071151265-2",
+    from: "carl",
+    to: "joseluis",
+    amount: 1483.80,
+    method: "transfer",
+    note: "Abono directo entre participantes",
+    date: "2026-09-18",
+    expenseId: "exp-1"
+  },
+  {
+    id: "pay-1789071151265-3",
+    from: "anjuri",
+    to: "joseluis",
+    amount: 1483.80,
+    method: "transfer",
+    note: "Abono directo entre participantes",
+    date: "2026-09-18",
+    expenseId: "exp-1"
+  }
+];
+
 const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v4';
 const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v1';
 
@@ -316,10 +379,10 @@ const loadLatestStoredPayments = () => {
     const raw = localStorage.getItem(PRIMARY_PAYMENTS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch (e) {}
-  return [];
+  return INITIAL_PAYMENTS;
 };
 
 const scanAllAvailableStorage = () => {
