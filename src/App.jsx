@@ -383,16 +383,22 @@ const INITIAL_PAYMENTS = [
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v5';
-const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v2';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v6_2026';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v6_2026';
 
 const loadLatestStoredExpenses = () => {
   try {
     const raw = localStorage.getItem(PRIMARY_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      if (parsed && Array.isArray(parsed.expenses) && parsed.expenses.length > 0) return parsed.expenses;
+      const list = Array.isArray(parsed) ? parsed : parsed?.expenses;
+      if (Array.isArray(list) && list.length > 0) {
+        // Enforce latest authoritative dataset: sum must be >= $20,000
+        const totalAmt = list.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+        if (totalAmt >= 20000) {
+          return list;
+        }
+      }
     }
   } catch (e) {}
   return INITIAL_EXPENSES;
@@ -832,6 +838,19 @@ export default function App() {
       setShowRecoveryModal(false);
       setCopySuccessNotice(`¡Se restauraron ${data.length} rubros con éxito!`);
       setTimeout(() => setCopySuccessNotice(''), 4000);
+    }
+  };
+
+  const handleResetToOfficialData = () => {
+    if (window.confirm('¿Deseas restablecer la aplicación a los datos oficiales completos ($20,776.77 USD) y los 6 abonos?')) {
+      setExpenses(INITIAL_EXPENSES);
+      setPayments(INITIAL_PAYMENTS);
+      persistExpenses(INITIAL_EXPENSES);
+      persistPayments(INITIAL_PAYMENTS);
+      setShowRecoveryModal(false);
+      setShowQuickBackupModal(false);
+      setCopySuccessNotice('✅ ¡Aplicación restablecida con éxito a los $20,776.77 USD oficiales!');
+      setTimeout(() => setCopySuccessNotice(''), 4500);
     }
   };
 
