@@ -444,21 +444,74 @@ export default function App() {
   const [paymentDate, setPaymentDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [paymentExpenseId, setPaymentExpenseId] = useState('');
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  const [showMobileSyncModal, setShowMobileSyncModal] = useState(false);
+
+  // Maintain refs for atomic cloud updates
+  const expensesRef = useRef(expenses);
+  useEffect(() => { expensesRef.current = expenses; }, [expenses]);
+
+  const paymentsRef = useRef(payments);
+  useEffect(() => { paymentsRef.current = payments; }, [payments]);
+
+  // URL Hash Auto-Importer for mobile sync links
+  useEffect(() => {
+    try {
+      const hash = window.location.hash;
+      if (hash && hash.includes('syncData=')) {
+        const encodedData = hash.split('syncData=')[1];
+        if (encodedData) {
+          const jsonStr = decodeURIComponent(atob(encodedData));
+          const parsed = JSON.parse(jsonStr);
+          let importedExpCount = 0;
+          let importedPayCount = 0;
+
+          if (parsed && Array.isArray(parsed.expenses)) {
+            setExpenses(parsed.expenses);
+            try {
+              localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(parsed.expenses));
+              localStorage.setItem('argtrip_gastos_data_v2', JSON.stringify(parsed.expenses));
+            } catch (e) {}
+            importedExpCount = parsed.expenses.length;
+          }
+          if (parsed && Array.isArray(parsed.payments)) {
+            setPayments(parsed.payments);
+            try {
+              localStorage.setItem(PRIMARY_PAYMENTS_KEY, JSON.stringify(parsed.payments));
+            } catch (e) {}
+            importedPayCount = parsed.payments.length;
+          }
+          setCopySuccessNotice(`🎉 ¡Sincronización móvil exitosa! Se importaron ${importedExpCount} gastos y ${importedPayCount} abonos.`);
+          setTimeout(() => setCopySuccessNotice(''), 6000);
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    } catch (err) {
+      console.warn('Error al importar datos desde enlace de sincronización móvil:', err);
+    }
+  }, []);
+
+  const generateMobileSyncLink = () => {
+    try {
+      const payload = {
+        expenses: expensesRef.current || expenses,
+        payments: paymentsRef.current || payments,
+        v: Date.now()
+      };
+      const jsonStr = JSON.stringify(payload);
+      const encoded = btoa(encodeURIComponent(jsonStr));
+      const baseUrl = window.location.origin + window.location.pathname;
+      return `${baseUrl}#syncData=${encoded}`;
+    } catch (e) {
+      return window.location.href;
+    }
+  };
 
   const persistPayments = (listToSave) => {
     const list = listToSave || payments;
     try {
       localStorage.setItem(PRIMARY_PAYMENTS_KEY, JSON.stringify(list));
     } catch (e) {}
-    if (db && user) {
-      try {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'argentina_expenses', 'active_payments');
-        setDoc(docRef, {
-          payments: list,
-          updatedAt: new Date().toISOString()
-        });
-      } catch (err) {}
-    }
+    persistCloudData(expensesRef.current || expenses, list);
   };
 
   const handleAddPayment = (e) => {
@@ -586,6 +639,7 @@ export default function App() {
     };
   }, []);
 
+  // Atomic Firestore Realtime Listener for BOTH expenses and payments
   useEffect(() => {
     if (!db || !user) return;
     const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'argentina_expenses', 'active_sheet');
@@ -593,12 +647,19 @@ export default function App() {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        if (data && Array.isArray(data.expenses)) {
-          // Authoritative sync: accept exact list without merging deleted entries
-          setExpenses(data.expenses);
-          try {
-            localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(data.expenses));
-          } catch (e) {}
+        if (data) {
+          if (Array.isArray(data.expenses)) {
+            setExpenses(data.expenses);
+            try {
+              localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(data.expenses));
+            } catch (e) {}
+          }
+          if (Array.isArray(data.payments)) {
+            setPayments(data.payments);
+            try {
+              localStorage.setItem(PRIMARY_PAYMENTS_KEY, JSON.stringify(data.payments));
+            } catch (e) {}
+          }
           if (data.updatedAt) {
             setLastSavedTime(new Date(data.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
           }
@@ -611,44 +672,46 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
-  const persistExpenses = async (expensesToSave) => {
-    const list = expensesToSave || expenses;
-    setIsCloudSyncing(true);
-
-    // 1. Save strictly to the authoritative primary local storage key
-    try {
-      localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(list));
-      // Overwrite secondary keys so old deleted data cannot resurrect
-      localStorage.setItem('argtrip_gastos_data_v2', JSON.stringify(list));
-    } catch (e) {}
-
-    // 2. IndexedDB permanent browser storage
-    await saveToIndexedDB(list);
-    setAvailableBackups(scanAllAvailableStorage());
-
-    // 3. Cloud Firestore persistence: overwrite directly without merge-combining deleted items
-    let savedInCloud = false;
+  const persistCloudData = async (expensesList, paymentsList) => {
+    const expList = expensesList || expensesRef.current || expenses;
+    const payList = paymentsList || paymentsRef.current || payments;
     const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     if (db && user) {
       try {
         const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'argentina_expenses', 'active_sheet');
         await setDoc(docRef, {
-          expenses: list,
+          expenses: expList,
+          payments: payList,
           updatedAt: new Date().toISOString()
         });
-        savedInCloud = true;
         setCloudConnected(true);
         setLastSavedTime(nowTimeStr);
       } catch (err) {
         console.warn('Error al guardar en Firestore:', err);
       }
     }
+  };
 
+  const persistExpenses = async (expensesToSave) => {
+    const list = expensesToSave || expenses;
+    setIsCloudSyncing(true);
+
+    try {
+      localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(list));
+      localStorage.setItem('argtrip_gastos_data_v2', JSON.stringify(list));
+    } catch (e) {}
+
+    await saveToIndexedDB(list);
+    setAvailableBackups(scanAllAvailableStorage());
+
+    await persistCloudData(list, paymentsRef.current || payments);
+
+    const nowTimeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setSaveStatus('saved');
-    const msg = savedInCloud
-      ? `✅ Guardado exitoso en la Nube y Tablet (${list.length} rubros a las ${nowTimeStr})`
-      : `✅ Guardado en la memoria de tu Tablet (${list.length} rubros a las ${nowTimeStr})`;
+    const msg = cloudConnected
+      ? `✅ Sincronizado en la Nube (${list.length} rubros y ${payments.length} abonos a las ${nowTimeStr})`
+      : `✅ Guardado en memoria local (${list.length} rubros a las ${nowTimeStr})`;
     
     setSaveMessage(msg);
     setIsCloudSyncing(false);
@@ -1160,6 +1223,14 @@ export default function App() {
             >
               <IconTable />
               <span className="hidden sm:inline">Tabla y Compartir</span>
+            </button>
+
+            <button
+              onClick={() => setShowMobileSyncModal(true)}
+              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-black px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-md transition"
+              title="Generar enlace para sincronizar tu teléfono celular en 1 clic"
+            >
+              <span>📱 Sincronizar Móvil</span>
             </button>
 
             <button
@@ -2004,6 +2075,78 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para Sincronización Móvil en 1 Clic */}
+      {showMobileSyncModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col">
+            <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
+              <h3 className="font-extrabold text-sm flex items-center gap-2">
+                <span>📱 Sincronizar con tu Celular</span>
+              </h3>
+              <button
+                onClick={() => setShowMobileSyncModal(false)}
+                className="text-slate-400 hover:text-white transition"
+              >
+                <IconX />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900">
+                <div className="font-extrabold text-sm mb-1 flex items-center gap-1.5">
+                  <span>📲 Sincronización Instantánea de 1 Clic</span>
+                </div>
+                <p>
+                  Sincroniza tus <strong>{expenses.length} movimientos</strong> y <strong>{payments.length} abonos</strong> directamente a tu teléfono celular:
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block font-bold text-slate-800">
+                  Enlace Único de Sincronización:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={generateMobileSyncLink()}
+                    className="flex-1 bg-slate-100 border border-slate-300 rounded-xl p-2.5 font-mono text-[11px] text-slate-700 select-all"
+                  />
+                  <button
+                    onClick={() => {
+                      copyToClipboard(generateMobileSyncLink());
+                      setCopySuccessNotice('¡Enlace de sincronización copiado! Envíatelo por WhatsApp.');
+                      setTimeout(() => setCopySuccessNotice(''), 4500);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-4 py-2.5 rounded-xl shadow-xs transition shrink-0"
+                  >
+                    Copiar Enlace
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 text-slate-700">
+                <div className="font-bold text-slate-900">💡 Instrucciones sencillas:</div>
+                <ol className="list-decimal list-inside space-y-1 text-[11px]">
+                  <li>Haz clic en el botón verde <strong>"Copiar Enlace"</strong>.</li>
+                  <li>Envíatelo a tu propio chat de <strong>WhatsApp</strong>.</li>
+                  <li>Abre el enlace en tu celular. ¡Todos los datos se sincronizarán al instante!</li>
+                </ol>
+              </div>
+
+              <div className="pt-2 flex justify-end border-t border-slate-100">
+                <button
+                  onClick={() => setShowMobileSyncModal(false)}
+                  className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
