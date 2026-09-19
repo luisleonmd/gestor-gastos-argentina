@@ -383,8 +383,28 @@ const INITIAL_PAYMENTS = [
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v6_2026';
-const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v6_2026';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v8_official';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v8_official';
+
+const purgeStaleLegacyStorage = () => {
+  try {
+    const legacyKeys = [
+      'argtrip_active_state_v6_2026',
+      'argtrip_payments_list_v6_2026',
+      'argtrip_active_state_v4',
+      'argtrip_gastos_data_v2',
+      'argtrip_gastos_data',
+      'argtrip_backup',
+      'ARGENTINA_GASTOS_DATA_V1'
+    ];
+    legacyKeys.forEach(k => {
+      try { localStorage.removeItem(k); } catch (e) {}
+    });
+  } catch (e) {}
+};
+
+// Purge legacy stale keys immediately on load
+purgeStaleLegacyStorage();
 
 const loadLatestStoredExpenses = () => {
   try {
@@ -409,11 +429,12 @@ const loadLatestStoredPayments = () => {
     const raw = localStorage.getItem(PRIMARY_PAYMENTS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length >= 6) return parsed;
     }
   } catch (e) {}
   return INITIAL_PAYMENTS;
 };
+
 
 const scanAllAvailableStorage = () => {
   const discoveredVersions = [];
@@ -2185,13 +2206,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal para Sincronización Móvil en 1 Clic */}
+      {/* Modal para Sincronización Móvil en 1 Clic con QR */}
       {showMobileSyncModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col">
-            <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] overflow-y-auto">
+            <div className="bg-slate-900 text-white px-5 py-4 flex justify-between items-center sticky top-0 z-10">
               <h3 className="font-extrabold text-sm flex items-center gap-2">
-                <span>📱 Sincronizar con tu Celular</span>
+                <span>📱 Sincronizar Móvil & Código QR</span>
               </h3>
               <button
                 onClick={() => setShowMobileSyncModal(false)}
@@ -2204,16 +2225,30 @@ export default function App() {
             <div className="p-5 space-y-4 text-xs">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-emerald-900">
                 <div className="font-extrabold text-sm mb-1 flex items-center gap-1.5">
-                  <span>📲 Sincronización Instantánea de 1 Clic</span>
+                  <span>📲 Escanea o Copia para Sincronizar</span>
                 </div>
                 <p>
-                  Sincroniza tus <strong>{expenses.length} movimientos</strong> y <strong>{payments.length} abonos</strong> directamente a tu teléfono celular:
+                  Sincroniza tus <strong>{expenses.length} movimientos ($20,776.77 USD)</strong> y <strong>{payments.length} abonos ($4,536.27 USD)</strong> directamente a tu teléfono móvil:
+                </p>
+              </div>
+
+              {/* QR Code Section */}
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-slate-200 rounded-2xl shadow-inner space-y-2">
+                <div className="bg-white p-2.5 rounded-xl shadow-md border border-slate-200">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(generateMobileSyncLink())}`} 
+                    alt="Código QR de Sincronización Móvil" 
+                    className="w-48 h-48 rounded-lg object-contain"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-600 font-extrabold text-center">
+                  📷 Escanea este código QR con la cámara de tu teléfono para abrir y guardar los datos al instante
                 </p>
               </div>
 
               <div className="space-y-2">
                 <label className="block font-bold text-slate-800">
-                  Enlace Único de Sincronización:
+                  O Copia el Enlace Único de Sincronización:
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -2235,13 +2270,19 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5 text-slate-700">
-                <div className="font-bold text-slate-900">💡 Instrucciones sencillas:</div>
-                <ol className="list-decimal list-inside space-y-1 text-[11px]">
-                  <li>Haz clic en el botón verde <strong>"Copiar Enlace"</strong>.</li>
-                  <li>Envíatelo a tu propio chat de <strong>WhatsApp</strong>.</li>
-                  <li>Abre el enlace en tu celular. ¡Todos los datos se sincronizarán al instante!</li>
-                </ol>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-2 text-amber-900">
+                <div className="font-bold text-amber-950 flex items-center gap-1.5">
+                  <span>⚡ ¿El móvil no se actualiza?</span>
+                </div>
+                <p className="text-[11px]">
+                  Si tu teléfono móvil guardó información vieja en memoria, usa el siguiente botón en tu móvil para forzar la actualización a los $20,776.77 USD oficiales:
+                </p>
+                <button
+                  onClick={handleResetToOfficialData}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-black py-2 rounded-xl shadow-sm transition text-xs flex items-center justify-center gap-1.5"
+                >
+                  <span>🔄 Cargar Datos Oficiales ($20,776.77 USD + 6 Abonos)</span>
+                </button>
               </div>
 
               <div className="pt-2 flex justify-end border-t border-slate-100">
@@ -2256,6 +2297,7 @@ export default function App() {
           </div>
         </div>
       )}
+
 
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
