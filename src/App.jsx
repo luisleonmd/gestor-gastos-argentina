@@ -90,29 +90,10 @@ const INITIAL_EXPENSES = [
     "id": "exp-1789071151263",
     "paidStatus": {},
     "paymentMethod": "credit_card",
-    "amount": 2700,
+    "amount": 5774,
     "expenseType": "pending",
     "title": "Hospedaje Buenos Aires",
     "paidBy": "joseluis"
-  },
-  {
-    "title": "Buque a Colonia",
-    "date": "2026-09-10",
-    "expenseType": "pending",
-    "paymentMethod": "credit_card",
-    "participants": [
-      "joseluis",
-      "david",
-      "carl",
-      "anjuri",
-      "marie",
-      "katerin",
-      "joan"
-    ],
-    "paidBy": "joseluis",
-    "paidStatus": {},
-    "id": "exp-1789008286910",
-    "amount": 720
   },
   {
     "paidBy": "joseluis",
@@ -162,8 +143,70 @@ const INITIAL_EXPENSES = [
       "katerin",
       "joan"
     ],
+    "title": "Prima de transporte a viñedos",
+    "paidStatus": {
+      "joseluis": true,
+      "david": false,
+      "carl": false,
+      "anjuri": false,
+      "marie": false,
+      "katerin": false,
+      "joan": false
+    },
+    "id": "exp-1789087154333",
+    "date": "2026-09-18",
+    "paymentMethod": "credit_card",
+    "paidBy": "joseluis",
+    "expenseType": "paid",
+    "amount": 198
+  },
+  {
+    "title": "Buque a Colonia",
+    "date": "2026-09-10",
+    "expenseType": "paid",
+    "paymentMethod": "credit_card",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "paidBy": "joseluis",
+    "paidStatus": {
+      "joseluis": true,
+      "david": false,
+      "carl": false,
+      "anjuri": false,
+      "marie": false,
+      "katerin": false,
+      "joan": false
+    },
+    "id": "exp-1789008286910",
+    "amount": 742
+  },
+  {
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
     "title": "Excursión Alta Montaña Mendoza",
-    "paidStatus": {},
+    "paidStatus": {
+      "joseluis": true,
+      "david": false,
+      "carl": false,
+      "anjuri": false,
+      "marie": false,
+      "katerin": false,
+      "joan": false
+    },
     "id": "exp-1789008199911",
     "date": "2026-09-10",
     "paymentMethod": "credit_card",
@@ -172,7 +215,15 @@ const INITIAL_EXPENSES = [
     "amount": 469
   },
   {
-    "paidStatus": {},
+    "paidStatus": {
+      "carl": true,
+      "joseluis": false,
+      "david": false,
+      "anjuri": false,
+      "marie": false,
+      "katerin": false,
+      "joan": false
+    },
     "participants": [
       "joseluis",
       "david",
@@ -254,7 +305,7 @@ const INITIAL_EXPENSES = [
     "id": "exp-3",
     "date": "2026-09-03",
     "expenseType": "paid",
-    "amount": 700,
+    "amount": 375.27,
     "title": "Visita Bodega Salentein",
     "paidBy": "joseluis",
     "participants": [
@@ -266,33 +317,6 @@ const INITIAL_EXPENSES = [
       "katerin",
       "joan"
     ]
-  },
-  {
-    "date": "2026-09-04",
-    "paidStatus": {
-      "anjuri": false,
-      "david": false,
-      "joan": false,
-      "joseluis": true,
-      "katerin": false,
-      "carl": false,
-      "marie": false
-    },
-    "participants": [
-      "joseluis",
-      "david",
-      "carl",
-      "anjuri",
-      "marie",
-      "katerin",
-      "joan"
-    ],
-    "amount": 224,
-    "title": "Almuerzo El Enemigo (Casa Vigil)",
-    "paymentMethod": "credit_card",
-    "id": "exp-4",
-    "paidBy": "joseluis",
-    "expenseType": "paid"
   }
 ];
 
@@ -305,7 +329,7 @@ const INITIAL_PAYMENTS = [
     method: "transfer",
     note: "Abono directo entre participantes",
     date: "2026-09-18",
-    expenseId: ""
+    expenseId: "exp-1789087154333"
   },
   {
     id: "pay-1789071151264-2",
@@ -315,7 +339,7 @@ const INITIAL_PAYMENTS = [
     method: "transfer",
     note: "Abono directo entre participantes",
     date: "2026-09-18",
-    expenseId: ""
+    expenseId: "exp-1789087154333"
   },
   {
     id: "pay-1789071151264-3",
@@ -325,7 +349,7 @@ const INITIAL_PAYMENTS = [
     method: "transfer",
     note: "Abono directo entre participantes",
     date: "2026-09-18",
-    expenseId: ""
+    expenseId: "exp-1789087154333"
   },
   {
     id: "pay-1789071151265-1",
@@ -359,8 +383,8 @@ const INITIAL_PAYMENTS = [
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v4';
-const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v1';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v5';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v2';
 
 const loadLatestStoredExpenses = () => {
   try {
