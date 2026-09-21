@@ -386,63 +386,68 @@ const INITIAL_PAYMENTS = [
 const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v8_official';
 const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v8_official';
 
-const purgeStaleLegacyStorage = () => {
-  try {
-    const legacyKeys = [
-      'argtrip_active_state_v6_2026',
-      'argtrip_payments_list_v6_2026',
-      'argtrip_active_state_v4',
-      'argtrip_gastos_data_v2',
-      'argtrip_gastos_data',
-      'argtrip_backup',
-      'ARGENTINA_GASTOS_DATA_V1'
-    ];
-    legacyKeys.forEach(k => {
-      try { localStorage.removeItem(k); } catch (e) {}
-    });
-  } catch (e) {}
-};
-
-// Purge legacy stale keys immediately on load
-purgeStaleLegacyStorage();
-
+// Never purge legacy storage automatically; inspect all keys safely to prevent data loss
 const loadLatestStoredExpenses = () => {
-  try {
-    const raw = localStorage.getItem(PRIMARY_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      const list = Array.isArray(parsed) ? parsed : parsed?.expenses;
-      if (Array.isArray(list) && list.length > 0) {
-        // Enforce latest authoritative dataset: sum must be >= $20,000
-        const totalAmt = list.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-        if (totalAmt >= 20000) {
+  const knownKeys = [
+    PRIMARY_STORAGE_KEY,
+    'argtrip_active_state_v8_official',
+    'argtrip_active_state_v6_2026',
+    'argtrip_active_state_v5',
+    'argtrip_active_state_v4',
+    'argtrip_gastos_data_v2',
+    'argtrip_gastos_data',
+    'argtrip_backup',
+    'ARGENTINA_GASTOS_DATA_V1'
+  ];
+
+  for (const key of knownKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const list = Array.isArray(parsed) ? parsed : parsed?.expenses;
+        if (Array.isArray(list) && list.length > 0) {
           return list;
         }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
   return INITIAL_EXPENSES;
 };
 
 const loadLatestStoredPayments = () => {
-  try {
-    const raw = localStorage.getItem(PRIMARY_PAYMENTS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length >= 6) return parsed;
-    }
-  } catch (e) {}
+  const knownKeys = [
+    PRIMARY_PAYMENTS_KEY,
+    'argtrip_payments_list_v8_official',
+    'argtrip_payments_list_v6_2026',
+    'argtrip_payments_list_v2',
+    'argtrip_payments_list_v1'
+  ];
+
+  for (const key of knownKeys) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+  }
   return INITIAL_PAYMENTS;
 };
-
 
 const scanAllAvailableStorage = () => {
   const discoveredVersions = [];
   const knownKeys = [
     PRIMARY_STORAGE_KEY,
+    'argtrip_active_state_v8_official',
+    'argtrip_active_state_v6_2026',
+    'argtrip_active_state_v5',
+    'argtrip_active_state_v4',
     'argtrip_gastos_data_v2',
     'argtrip_gastos_data',
-    'argtrip_backup'
+    'argtrip_backup',
+    'ARGENTINA_GASTOS_DATA_V1'
   ];
 
   knownKeys.forEach(key => {
