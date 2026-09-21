@@ -910,8 +910,14 @@ export default function App() {
         totalPaymentsReceived: 0,
         pendingProjectedShare: 0,
         cashRequiredForTrip: 0,
-        totalOutOfPocketRequired: 0
+        totalOutOfPocketRequired: 0,
+        debtsByPayer: {}
       };
+      PARTICIPANTS.forEach(other => {
+        if (other.id !== p.id) {
+          userBreakdowns[p.id].debtsByPayer[other.id] = 0;
+        }
+      });
     });
 
     let grandTotalTrip = 0;
@@ -919,7 +925,7 @@ export default function App() {
     let totalPendingCategory = 0;
     let totalCashCategory = 0;
 
-    // Rastrear abonos registrados específicos por gasto y participante
+    // Rastrear abonos específicos por (gasto + deudor)
     const abonosByExpenseAndUser = {};
     payments.forEach(pay => {
       if (pay.expenseId && pay.from) {
@@ -928,17 +934,19 @@ export default function App() {
       }
     });
 
+    // 1. Procesar todos los gastos del viaje
     expenses.forEach(exp => {
       const amt = Number(exp.amount) || 0;
-      const participantsCount = (exp.participants && exp.participants.length > 0) ? exp.participants.length : 1;
-      const share = amt / participantsCount;
+      const participantsList = (exp.participants && exp.participants.length > 0) ? exp.participants : PARTICIPANTS.map(p => p.id);
+      const participantsCount = participantsList.length;
+      const share = amt / (participantsCount || 1);
 
       grandTotalTrip += amt;
       if (exp.expenseType === 'paid') totalPaidCategory += amt;
       else if (exp.expenseType === 'pending') totalPendingCategory += amt;
       else if (exp.expenseType === 'cash') totalCashCategory += amt;
 
-      (exp.participants || []).forEach(userId => {
+      participantsList.forEach(userId => {
         if (!userBreakdowns[userId]) return;
         userBreakdowns[userId].totalCostAllActivities += share;
 
@@ -951,19 +959,20 @@ export default function App() {
           const abonoSpecificAmt = abonosByExpenseAndUser[`${exp.id}_${userId}`] || 0;
           const hasSettled = isPayer || Boolean(exp.paidStatus && exp.paidStatus[userId]) || (abonoSpecificAmt >= share && share > 0);
 
-          // Calcular cuánto le deben los demás a quien pagó este rubro específico
+          // Rastrear participantes saldados y pendientes en este rubro
           let remainingOwedOnItem = 0;
           let totalOthersShare = 0;
           const unsettledParticipants = [];
           const settledParticipants = [];
 
-          (exp.participants || []).forEach(otherId => {
+          participantsList.forEach(otherId => {
             if (otherId !== exp.paidBy) {
               totalOthersShare += share;
               const otherPass = PARTICIPANTS.find(p => p.id === otherId);
               const otherName = otherPass ? otherPass.shortName : otherId;
               const otherAbono = abonosByExpenseAndUser[`${exp.id}_${otherId}`] || 0;
-              if ((exp.paidStatus && exp.paidStatus[otherId]) || otherAbono >= share) {
+              const otherSettled = Boolean(exp.paidStatus && exp.paidStatus[otherId]) || otherAbono >= share;
+              if (otherSettled) {
                 settledParticipants.push(otherName);
               } else {
                 remainingOwedOnItem += Math.max(0, share - otherAbono);
@@ -992,10 +1001,14 @@ export default function App() {
           });
 
           if (!isPayer) {
-            if (hasSettled) {
-              userBreakdowns[userId].totalAlreadySettledToOrganizer += share;
-            } else {
-              userBreakdowns[userId].grossDebtToOrganizer += share;
+            const actualRemainingOwedOnThisItem = hasSettled ? 0 : Math.max(0, share - abonoSpecificAmt);
+            userBreakdowns[userId].debtsByPayer[exp.paidBy] = (userBreakdowns[userId].debtsByPayer[exp.paidBy] || 0) + actualRemainingOwedOnThisItem;
+
+            if (exp.paidBy === 'joseluis') {
+              userBreakdowns[userId].grossDebtToOrganizer += actualRemainingOwedOnThisItem;
+              if (hasSettled) {
+                userBreakdowns[userId].totalAlreadySettledToOrganizer += share;
+              }
             }
           }
         } else if (exp.expenseType === 'pending') {
@@ -1026,7 +1039,10 @@ export default function App() {
       });
     });
 
+    // 2. Procesar abonos (pagos libres o específicos entre personas)
     let totalAbonosTrip = 0;
+    const generalAbonosByFromAndTo = {};
+
     payments.forEach(pay => {
       const amt = Number(pay.amount) || 0;
       totalAbonosTrip += amt;
@@ -1036,15 +1052,31 @@ export default function App() {
       if (userBreakdowns[pay.to]) {
         userBreakdowns[pay.to].totalPaymentsReceived += amt;
       }
+      if (!pay.expenseId) {
+        const key = `${pay.from}_${pay.to}`;
+        generalAbonosByFromAndTo[key] = (generalAbonosByFromAndTo[key] || 0) + amt;
+      }
     });
 
+    // 3. Aplicar abonos generales y calcular saldos restantes por persona
     PARTICIPANTS.forEach(p => {
       const b = userBreakdowns[p.id];
-      b.debtToOrganizerRemaining = Math.max(0, b.grossDebtToOrganizer - b.totalPaymentsMade);
-      b.totalAlreadySettledToOrganizer += b.totalPaymentsMade;
-      b.totalOutOfPocketRequired = b.debtToOrganizerRemaining + b.pendingProjectedShare + b.cashRequiredForTrip;
+      const generalPaidToOrganizer = generalAbonosByFromAndTo[`${p.id}_joseluis`] || 0;
+      
+      b.debtToOrganizerRemaining = Math.max(0, b.grossDebtToOrganizer - generalPaidToOrganizer);
+      b.totalAlreadySettledToOrganizer += generalPaidToOrganizer;
+
+      let totalRemainingDebtAllPayers = 0;
+      Object.keys(b.debtsByPayer).forEach(payerId => {
+        const genPaid = generalAbonosByFromAndTo[`${p.id}_${payerId}`] || 0;
+        b.debtsByPayer[payerId] = Math.max(0, b.debtsByPayer[payerId] - genPaid);
+        totalRemainingDebtAllPayers += b.debtsByPayer[payerId];
+      });
+
+      b.totalOutOfPocketRequired = (p.isOrganizer ? 0 : b.debtToOrganizerRemaining) + b.pendingProjectedShare + b.cashRequiredForTrip;
     });
 
+    // 4. Calcular total a cobrar por el organizador (José Luis)
     let organizerTotalOwedByOthers = 0;
     PARTICIPANTS.filter(p => !p.isOrganizer).forEach(p => {
       organizerTotalOwedByOthers += userBreakdowns[p.id].debtToOrganizerRemaining;
