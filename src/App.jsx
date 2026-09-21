@@ -77,6 +77,44 @@ const PARTICIPANTS = [
 
 const INITIAL_EXPENSES = [
   {
+    "id": "exp-1790025429669",
+    "title": "Fiesta de año nuevo y Madero tango",
+    "amount": 2100,
+    "paidBy": "joseluis",
+    "expenseType": "pending",
+    "paymentMethod": "credit_card",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "paidStatus": {},
+    "date": "2026-09-21"
+  },
+  {
+    "id": "exp-1790025383228",
+    "title": "Cena Catena Zapata Angelica Zapata",
+    "amount": 1074,
+    "paidBy": "joseluis",
+    "expenseType": "pending",
+    "paymentMethod": "credit_card",
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "paidStatus": {},
+    "date": "2026-09-21"
+  },
+  {
     "participants": [
       "joseluis",
       "david",
@@ -90,7 +128,7 @@ const INITIAL_EXPENSES = [
     "id": "exp-1789071151263",
     "paidStatus": {},
     "paymentMethod": "credit_card",
-    "amount": 5774,
+    "amount": 3000,
     "expenseType": "pending",
     "title": "Hospedaje Buenos Aires",
     "paidBy": "joseluis"
@@ -109,15 +147,7 @@ const INITIAL_EXPENSES = [
     "title": "Vuelos Mendoza EZE",
     "amount": 1356,
     "expenseType": "paid",
-    "paidStatus": {
-      "joseluis": true,
-      "david": false,
-      "carl": false,
-      "anjuri": false,
-      "marie": false,
-      "katerin": false,
-      "joan": false
-    },
+    "paidStatus": {},
     "id": "exp-1789008270211",
     "date": "2026-09-10",
     "paymentMethod": "credit_card"
@@ -196,6 +226,25 @@ const INITIAL_EXPENSES = [
     "amount": 742
   },
   {
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "title": "Excursión Alta Montaña Mendoza",
+    "paidStatus": {},
+    "id": "exp-1789008199911",
+    "date": "2026-09-10",
+    "paymentMethod": "credit_card",
+    "paidBy": "joseluis",
+    "expenseType": "pending",
+    "amount": 469
+  },
+  {
     "paidStatus": {
       "carl": true,
       "joseluis": false,
@@ -270,7 +319,7 @@ const INITIAL_EXPENSES = [
     "id": "exp-3",
     "date": "2026-09-03",
     "expenseType": "pending",
-    "amount": 700,
+    "amount": 375.27,
     "title": "Visita Bodega Salentein",
     "paidBy": "joseluis",
     "participants": [
@@ -282,44 +331,6 @@ const INITIAL_EXPENSES = [
       "katerin",
       "joan"
     ]
-  },
-  {
-    "date": "2026-09-04",
-    "paidStatus": {},
-    "participants": [
-      "joseluis",
-      "david",
-      "carl",
-      "anjuri",
-      "marie",
-      "katerin",
-      "joan"
-    ],
-    "amount": 224,
-    "title": "Almuerzo El Enemigo (Casa Vigil)",
-    "paymentMethod": "credit_card",
-    "id": "exp-4",
-    "paidBy": "joseluis",
-    "expenseType": "pending"
-  },
-  {
-    "date": "2026-09-12",
-    "paidStatus": {},
-    "participants": [
-      "joseluis",
-      "david",
-      "carl",
-      "anjuri",
-      "marie",
-      "katerin",
-      "joan"
-    ],
-    "amount": 320.27,
-    "title": "Cena en Catena Zapata",
-    "paymentMethod": "credit_card",
-    "id": "exp-5",
-    "paidBy": "joseluis",
-    "expenseType": "pending"
   }
 ];
 
@@ -386,8 +397,8 @@ const INITIAL_PAYMENTS = [
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v10_exact20432';
-const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v10_exact20432';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v12_exact_computer';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v12_exact_computer';
 
 // Never purge legacy storage automatically; inspect all keys safely to prevent data loss
 const loadLatestStoredExpenses = () => {
