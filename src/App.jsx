@@ -107,9 +107,17 @@ const INITIAL_EXPENSES = [
       "joan"
     ],
     "title": "Vuelos Mendoza EZE",
-    "amount": 2100,
-    "expenseType": "pending",
-    "paidStatus": {},
+    "amount": 1356,
+    "expenseType": "paid",
+    "paidStatus": {
+      "joseluis": true,
+      "david": false,
+      "carl": false,
+      "anjuri": false,
+      "marie": false,
+      "katerin": false,
+      "joan": false
+    },
     "id": "exp-1789008270211",
     "date": "2026-09-10",
     "paymentMethod": "credit_card"
@@ -188,33 +196,6 @@ const INITIAL_EXPENSES = [
     "amount": 742
   },
   {
-    "participants": [
-      "joseluis",
-      "david",
-      "carl",
-      "anjuri",
-      "marie",
-      "katerin",
-      "joan"
-    ],
-    "title": "Excursión Alta Montaña Mendoza",
-    "paidStatus": {
-      "joseluis": true,
-      "david": false,
-      "carl": false,
-      "anjuri": false,
-      "marie": false,
-      "katerin": false,
-      "joan": false
-    },
-    "id": "exp-1789008199911",
-    "date": "2026-09-10",
-    "paymentMethod": "credit_card",
-    "paidBy": "joseluis",
-    "expenseType": "paid",
-    "amount": 469
-  },
-  {
     "paidStatus": {
       "carl": true,
       "joseluis": false,
@@ -267,16 +248,8 @@ const INITIAL_EXPENSES = [
   {
     "id": "exp-2",
     "date": "2026-09-02",
-    "expenseType": "paid",
-    "paidStatus": {
-      "joan": false,
-      "katerin": false,
-      "david": false,
-      "joseluis": true,
-      "anjuri": false,
-      "carl": false,
-      "marie": false
-    },
+    "expenseType": "pending",
+    "paidStatus": {},
     "paymentMethod": "credit_card",
     "amount": 980,
     "title": "Almuerzo Bodega Zuccardi",
@@ -292,20 +265,12 @@ const INITIAL_EXPENSES = [
     ]
   },
   {
-    "paidStatus": {
-      "katerin": false,
-      "joan": false,
-      "anjuri": false,
-      "marie": false,
-      "carl": false,
-      "david": false,
-      "joseluis": true
-    },
+    "paidStatus": {},
     "paymentMethod": "credit_card",
     "id": "exp-3",
     "date": "2026-09-03",
-    "expenseType": "paid",
-    "amount": 375.27,
+    "expenseType": "pending",
+    "amount": 700,
     "title": "Visita Bodega Salentein",
     "paidBy": "joseluis",
     "participants": [
@@ -317,6 +282,44 @@ const INITIAL_EXPENSES = [
       "katerin",
       "joan"
     ]
+  },
+  {
+    "date": "2026-09-04",
+    "paidStatus": {},
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "amount": 224,
+    "title": "Almuerzo El Enemigo (Casa Vigil)",
+    "paymentMethod": "credit_card",
+    "id": "exp-4",
+    "paidBy": "joseluis",
+    "expenseType": "pending"
+  },
+  {
+    "date": "2026-09-12",
+    "paidStatus": {},
+    "participants": [
+      "joseluis",
+      "david",
+      "carl",
+      "anjuri",
+      "marie",
+      "katerin",
+      "joan"
+    ],
+    "amount": 320.27,
+    "title": "Cena en Catena Zapata",
+    "paymentMethod": "credit_card",
+    "id": "exp-5",
+    "paidBy": "joseluis",
+    "expenseType": "pending"
   }
 ];
 
@@ -383,8 +386,8 @@ const INITIAL_PAYMENTS = [
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v8_official';
-const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v8_official';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v10_exact20432';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v10_exact20432';
 
 // Never purge legacy storage automatically; inspect all keys safely to prevent data loss
 const loadLatestStoredExpenses = () => {
