@@ -126,12 +126,14 @@ const INITIAL_EXPENSES = [
     ],
     "date": "2026-09-10",
     "id": "exp-1789071151263",
-    "paidStatus": {},
+    "paidStatus": {
+      "carl": true
+    },
     "paymentMethod": "credit_card",
-    "amount": 3000,
-    "expenseType": "pending",
+    "amount": 2601,
+    "expenseType": "paid",
     "title": "Hospedaje Buenos Aires",
-    "paidBy": "joseluis"
+    "paidBy": "carl"
   },
   {
     "paidBy": "joseluis",
@@ -397,8 +399,8 @@ const INITIAL_PAYMENTS = [
   }
 ];
 
-const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v12_exact_computer';
-const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v12_exact_computer';
+const PRIMARY_STORAGE_KEY = 'argtrip_active_state_v14_hospedaje_carl';
+const PRIMARY_PAYMENTS_KEY = 'argtrip_payments_list_v14_hospedaje_carl';
 
 // Never purge legacy storage automatically; inspect all keys safely to prevent data loss
 const loadLatestStoredExpenses = () => {
